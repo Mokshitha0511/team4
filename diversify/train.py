@@ -40,9 +40,6 @@ def main(args):
     
     best_valid_acc, target_acc = 0, 0
 
-    algorithm_class = alg.get_algorithm_class(args.algorithm)
-    algorithm = algorithm_class(args).cuda()
-    algorithm.train()
     optd = get_optimizer(algorithm, args, nettype='Diversify-adv')
     opt = get_optimizer(algorithm, args, nettype='Diversify-cls')
     opta = get_optimizer(algorithm, args, nettype='Diversify-all')
