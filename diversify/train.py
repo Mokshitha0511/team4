@@ -28,7 +28,7 @@ def main(args):
         algorithm_class = alg.get_algorithm_class(args.algorithm)
         algorithm = algorithm_class(args).cuda()
         algorithm.eval()
-        train_loader = get_curriculum_loader(args, tr, algorithm)
+        train_loader = get_curriculum_loader(args, algorithm, tr)
         algorithm.train()
         print("Curriculum learning is enabled. Using curriculum-based train loader.")
     else:
