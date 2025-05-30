@@ -6,6 +6,7 @@ from alg.opt import *
 from alg import alg, modelopera
 from utils.util import set_random_seed, get_args, print_row, print_args, train_valid_target_eval_names, alg_loss_dict, print_environ
 from datautil.getdataloader_single import get_act_dataloader
+from datautil.curriculum_loader import get_curriculum_loader
 
 
 def main(args):
@@ -22,6 +23,21 @@ def main(args):
     train_loader, train_loader_noshuffle, valid_loader, target_loader, _, _, _ = get_act_dataloader(
         args)
 
+        # Use curriculum loader if flag is set
+    if args.curriculum:
+        algorithm_class = alg.get_algorithm_class(args.algorithm)
+        algorithm = algorithm_class(args).cuda()
+        algorithm.eval()
+        train_loader = get_curriculum_loader(args, tr, algorithm)
+        algorithm.train()
+        print("Curriculum learning is enabled. Using curriculum-based train loader.")
+    else:
+        algorithm_class = alg.get_algorithm_class(args.algorithm)
+        algorithm = algorithm_class(args).cuda()
+        algorithm.train()
+        print("Using standard shuffled train loader.")
+
+    
     best_valid_acc, target_acc = 0, 0
 
     algorithm_class = alg.get_algorithm_class(args.algorithm)
