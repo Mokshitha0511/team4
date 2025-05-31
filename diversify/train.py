@@ -20,7 +20,7 @@ def main(args):
     else:
         args.batch_size = 16*args.latent_domain_num
 
-    train_loader, train_loader_noshuffle, valid_loader, target_loader, _, _, _ = get_act_dataloader(
+    train_loader, train_loader_noshuffle, valid_loader, target_loader, tr, val, targetdata = get_act_dataloader(
         args)
 
         # Use curriculum loader if flag is set
@@ -28,7 +28,7 @@ def main(args):
         algorithm_class = alg.get_algorithm_class(args.algorithm)
         algorithm = algorithm_class(args).cuda()
         algorithm.eval()
-        train_loader = get_curriculum_loader(args, algorithm, train_loader_noshuffle)
+        train_loader = get_curriculum_loader(args, algorithm, tr)
         algorithm.train()
         print("Curriculum learning is enabled. Using curriculum-based train loader.")
     else:
