@@ -1,65 +1,49 @@
-from torch.utils.data import DataLoader, Subset
-import numpy as np
 import torch
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, Subset
 
-def get_curriculum_loader(args, algorithm, train_dataset):
+def get_curriculum_loader(args, algorithm, train_loader):
     """
-    Create a curriculum-based DataLoader that feeds data domain-wise, sorted by classification loss.
-    
-    Args:
-        args: argument namespace.
-        algorithm: the current model (must have .forward() returning 'class' loss).
-        train_dataset: combined dataset from multiple domains.
-
-    Returns:
-        curriculum_loader: DataLoader with easy domains earlier.
+    A simplified version of how you might compute curriculum‐based subsetting.
+    Assume:
+      - train_loader yields (x, y, idx) each batch.
+      - algorithm.forward(x) returns unnormalized logits (batch_size × num_classes).
     """
 
-    # Stage set to 0 by default for initial curriculum
-    stage = 0
+    device = next(algorithm.parameters()).device
 
-    # === Domain-wise grouping ===
-    domain_indices = {}
-    if hasattr(train_dataset, 'domains'):  # custom Dataset with 'domains' attribute
-        for idx, d in enumerate(train_dataset.domains):
-            domain_indices.setdefault(d, []).append(idx)
-    else:
-        # fallback: assume train_dataset[i][2] returns domain id
-        for idx in range(len(train_dataset)):
-            domain = train_dataset[idx][2]
-            domain_indices.setdefault(domain, []).append(idx)
+    # 1) Initialize a per‐sample loss buffer (all zeros to start)
+    sample_losses = torch.zeros(len(train_loader.dataset), device=device)
 
-    domain_losses = []
+    # 2) Go through one “full pass” to compute losses for every example
+    algorithm.eval()
+    with torch.no_grad():
+        for batch in train_loader:
+            x, y, idx = batch                   # unpack triple
+            x, y = x.to(device), y.to(device)
 
-    for domain, indices in domain_indices.items():
-        subset = Subset(train_dataset, indices)
-        loader = DataLoader(subset, batch_size=args.batch_size, shuffle=False, num_workers=args.N_WORKERS)
+            logits = algorithm.forward(x)       # ONLY pass x – no idx!
+            # If your code defines a separate predict or inference method, use that:
+            # logits = algorithm.predict(x)
 
-        total_loss = 0.0
-        num_batches = 0
+            per_sample_loss = F.cross_entropy(logits, y, reduction='none')
+            sample_losses[idx] = per_sample_loss.detach()
 
-        for batch in loader:
-            batch = tuple(item.cuda() for item in batch)
-            output = algorithm.forward(batch)
-            total_loss += output['class'].item()
-            num_batches += 1
+    # 3) Compute an ordering or subset based on sample_losses (e.g. sort, EMA, etc.)
+    #    Here’s a toy example that picks the “easiest” 50% of samples for this epoch:
+    sorted_indices = torch.argsort(sample_losses)  # from lowest loss → highest
+    curriculum_size = int(0.5 * len(sorted_indices))
 
-        avg_loss = total_loss / num_batches if num_batches > 0 else float('inf')
-        domain_losses.append((domain, avg_loss))
+    selected_indices = sorted_indices[:curriculum_size].tolist()
+    curriculum_subset = Subset(train_loader.dataset, selected_indices)
 
-    # Sort domains by ascending loss (easy to hard)
-    domain_losses.sort(key=lambda x: x[1])
-
-    num_domains = len(domain_losses)
-    num_selected = int(np.ceil((stage + 1) / args.CL_PHASE_EPOCHS * num_domains))
-    selected_domains = [domain for domain, _ in domain_losses[:num_selected]]
-
-    selected_indices = []
-    for domain in selected_domains:
-        selected_indices.extend(domain_indices[domain])
-
-    curriculum_subset = Subset(train_dataset, selected_indices)
-    curriculum_loader = DataLoader(curriculum_subset, batch_size=args.batch_size,
-                                   shuffle=True, num_workers=args.N_WORKERS)
+    # 4) Create a new DataLoader over just that subset
+    curriculum_loader = DataLoader(
+        curriculum_subset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=args.num_workers,
+        pin_memory=True
+    )
 
     return curriculum_loader
