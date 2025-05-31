@@ -148,3 +148,6 @@ class Diversify(Algorithm):
 
     def predict1(self, x):
         return self.ddiscriminator(self.dbottleneck(self.featurizer(x)))
+
+    def forward(self, x):
+        return self.predict(x)
