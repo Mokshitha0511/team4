@@ -40,6 +40,7 @@ class Diversify(Algorithm):
         self.discriminator = Adver_network.Discriminator(
             args.bottleneck, args.dis_hidden, args.latent_domain_num)
         self.args = args
+        self.criterion = torch.nn.CrossEntropyLoss()
 
     def update_d(self, minibatch, opt):
         all_x1 = minibatch[0].cuda().float()
@@ -148,3 +149,22 @@ class Diversify(Algorithm):
 
     def predict1(self, x):
         return self.ddiscriminator(self.dbottleneck(self.featurizer(x)))
+
+    def forward(self, batch):
+    # batch is a tuple of tensors, so unpack inputs and labels accordingly
+        inputs = batch[0]  # input tensor, e.g. shape [batch_size, ...]
+        labels = batch[1]  # label tensor, e.g. shape [batch_size]
+
+    # get predictions from the existing predict method
+        preds = self.predict(inputs)
+        
+        
+        preds = preds.float()
+        labels = labels.long()
+
+    # compute classification loss using your loss criterion
+        class_loss = self.criterion(preds, labels)
+
+    # you can add other losses if you have, e.g., domain loss, entropy loss, etc.
+    # For now, just return the classification loss in a dict
+        return {'class': class_loss}
