@@ -23,19 +23,11 @@ def main(args):
     train_loader, train_loader_noshuffle, valid_loader, target_loader, tr, val, targetdata = get_act_dataloader(
         args)
 
-        # Use curriculum loader if flag is set
-    if args.curriculum:
-        algorithm_class = alg.get_algorithm_class(args.algorithm)
-        algorithm = algorithm_class(args).cuda()
-        algorithm.eval()
-        train_loader = get_curriculum_loader(args, algorithm, tr)
-        algorithm.train()
-        print("Curriculum learning is enabled. Using curriculum-based train loader.")
-    else:
-        algorithm_class = alg.get_algorithm_class(args.algorithm)
-        algorithm = algorithm_class(args).cuda()
-        algorithm.train()
-        print("Using standard shuffled train loader.")
+
+
+    algorithm_class = alg.get_algorithm_class(args.algorithm)
+    algorithm = algorithm_class(args).cuda()
+    algorithm.train()
 
     
     best_valid_acc, target_acc = 0, 0
@@ -46,6 +38,13 @@ def main(args):
 
     for round in range(args.max_epoch):
         print(f'\n========ROUND {round}========')
+        #Use curriculum loader if the flag is set
+        if args.curriculum:
+            if round < args.CL_PHASE_EPOCHS:
+                algorithm.eval()
+                train_loader = get_curriculum_loader(args, algorithm, tr, stage=round)
+                algorithm.train()
+                print(f"Curriculum learning: Stage {round}")
         print('====Feature update====')
         loss_list = ['class']
         print_row(['epoch']+[item+'_loss' for item in loss_list], colwidth=15)
