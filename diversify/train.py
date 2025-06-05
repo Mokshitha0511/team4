@@ -6,7 +6,8 @@ from alg.opt import *
 from alg import alg, modelopera
 from utils.util import set_random_seed, get_args, print_row, print_args, train_valid_target_eval_names, alg_loss_dict, print_environ
 from datautil.getdataloader_single import get_act_dataloader
-from datautil.getcurriculumloader import get_curriculum_loader
+from datautil.getcurriculumloader import get_curriculum_loader, split_dataset_by_domain
+from torch.utils.data import ConcatDataset
 
 
 def main(args):
