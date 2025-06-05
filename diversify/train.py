@@ -42,7 +42,9 @@ def main(args):
         if args.curriculum:
             if round < args.CL_PHASE_EPOCHS:
                 algorithm.eval()
-                train_loader = get_curriculum_loader(args, algorithm, tr, stage=round)
+                full_dataset = ConcatDataset([tr, val])
+                tr_curriculum, val_curriculum = split_dataset_by_domain(full_dataset)
+                train_loader = get_curriculum_loader(args, algorithm, tr_curriculum, val_curriculum, stage=round)
                 algorithm.train()
                 print(f"Curriculum learning: Stage {round}")
         print('====Feature update====')
